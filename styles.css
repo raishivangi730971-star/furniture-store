@@ -280,7 +280,14 @@ p { margin: 0 0 1em; color: var(--ink-soft); }
   font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
   padding: 6px 10px; border-radius: 999px;
 }
-.tag.sale { background: var(--danger); color: #fff; }
+.tag.sale {
+  background: var(--paper);
+  color: var(--oak-dark);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-sm);
+  font-size: 10px;
+  padding: 5px 9px;
+}
 .tag.new { background: var(--ink); color: var(--paper); }
 
 .quick-add {
@@ -395,7 +402,6 @@ p { margin: 0 0 1em; color: var(--ink-soft); }
   transform: translateY(24px) scale(.98); transition: transform .45s var(--ease);
 }
 .modal-panel.small { width: min(520px, 100%); }
-.modal.open .modal-panel { transform: none; }
 .modal-close { position: absolute; top: 14px; right: 14px; z-index: 3; background: var(--white); box-shadow: var(--shadow-sm); }
 
 .modal-body { display: grid; grid-template-columns: 1.1fr 1fr; }
