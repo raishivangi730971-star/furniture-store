@@ -110,7 +110,19 @@
     $$(".main-nav a[data-category]").forEach((a) => a.classList.toggle("current", a.dataset.category === state.filters.category));
   }
 
+  function resetFilters() {
+    state.filters = { category: "All", search: "", maxPrice: 5000, sort: "featured", inStock: false };
+    $("#sortSelect").value = "featured";
+    $("#inStockOnly").checked = false;
+    $("#priceRange").value = 5000;
+    $("#priceValue").textContent = money(5000);
+    $("#searchInput").value = "";
+    renderGrid();
+  }
+
   function setCategory(cat) {
+    // "All" means show everything, so it also clears search, price and stock filters
+    if (cat === "All") return resetFilters();
     state.filters.category = cat;
     renderGrid();
   }
@@ -452,15 +464,7 @@
       $("#priceValue").textContent = money(+e.target.value);
       renderGrid();
     });
-    $("#resetFilters").addEventListener("click", () => {
-      state.filters = { category: "All", search: "", maxPrice: 5000, sort: "featured", inStock: false };
-      $("#sortSelect").value = "featured";
-      $("#inStockOnly").checked = false;
-      $("#priceRange").value = 5000;
-      $("#priceValue").textContent = money(5000);
-      $("#searchInput").value = "";
-      renderGrid();
-    });
+    $("#resetFilters").addEventListener("click", resetFilters);
 
     // Product modal
     $("#modalBody").addEventListener("click", (e) => {
