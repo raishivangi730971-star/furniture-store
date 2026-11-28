@@ -50,7 +50,7 @@
   /* ---------- Product card markup ---------- */
   function cardHtml(p, i) {
     const wished = state.wishlist.includes(p.id);
-    const tag = p.oldPrice ? '<span class="tag sale">Sale</span>'
+    const tag = p.oldPrice || p.badge === "Sale" ? '<span class="tag sale">Sale</span>'
       : p.badge === "New" ? '<span class="tag new">New</span>'
       : p.badge ? `<span class="tag">${escapeHtml(p.badge)}</span>` : "";
     const price = p.oldPrice

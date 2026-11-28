@@ -41,7 +41,7 @@ const PRODUCTS = [
     rating: 4.8,
     reviews: 142,
     stock: true,
-    badge: "",
+    badge: "Sale",
     color: "Walnut & charcoal wool",
     material: "American walnut, wool bouclé",
     dimensions: "78 W × 82 D × 76 H cm",
