@@ -307,7 +307,6 @@
               (isLowest(p) ? ' <span class="best-note">Lowest price</span>' : ""), isLowest)}
             ${row("Rating", (p) => `<b class="star">★</b> ${p.rating.toFixed(1)} <span class="muted">(${p.reviews} reviews)</span>` +
               (isTopRated(p) ? ' <span class="best-note">Top rated</span>' : ""), isTopRated)}
-            ${row("Category", (p) => escapeHtml(p.category))}
             ${row("Colour", (p) => escapeHtml(p.color))}
             ${row("Material", (p) => escapeHtml(p.material))}
             ${row("Dimensions", (p) => escapeHtml(p.dimensions))}
