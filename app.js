@@ -276,8 +276,11 @@
   function renderCompare() {
     const items = comparedProducts();
     if (!items.length) return;
+    const minPrice = Math.min(...items.map((p) => p.price));
     const maxRating = Math.max(...items.map((p) => p.rating));
+    const priceTies = items.every((p) => p.price === minPrice);
     const ratingTies = items.every((p) => p.rating === maxRating);
+    const isLowest = (p) => !priceTies && p.price === minPrice;
     const isTopRated = (p) => !ratingTies && p.rating === maxRating;
 
     const row = (label, html, isBest) =>
@@ -300,10 +303,10 @@
         <table class="compare-table">
           <thead><tr><th scope="col" class="compare-corner"><span class="sr-only">Feature</span></th>${head}</tr></thead>
           <tbody>
-            ${row("Price", (p) => (p.oldPrice ? `${money(p.price)}<s>${money(p.oldPrice)}</s>` : money(p.price)))}
+            ${row("Price", (p) => (p.oldPrice ? `${money(p.price)}<s>${money(p.oldPrice)}</s>` : money(p.price)) +
+              (isLowest(p) ? ' <span class="best-note">Lowest price</span>' : ""), isLowest)}
             ${row("Rating", (p) => `<b class="star">★</b> ${p.rating.toFixed(1)} <span class="muted">(${p.reviews} reviews)</span>` +
               (isTopRated(p) ? ' <span class="best-note">Top rated</span>' : ""), isTopRated)}
-            ${row("Category", (p) => escapeHtml(p.category))}
             ${row("Colour", (p) => escapeHtml(p.color))}
             ${row("Material", (p) => escapeHtml(p.material))}
             ${row("Dimensions", (p) => escapeHtml(p.dimensions))}
