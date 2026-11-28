@@ -287,6 +287,26 @@
     </div>
   </div>
 
+  <!-- Compare bar -->
+  <div class="compare-bar" id="compareBar" role="region" aria-label="Compare products">
+    <div class="compare-bar-inner container">
+      <div class="compare-thumbs" id="compareThumbs"></div>
+      <div class="compare-actions">
+        <button class="compare-clear" id="compareClear">Clear</button>
+        <button class="btn btn-primary" id="compareOpen" disabled>Compare (0)</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Compare modal -->
+  <div class="modal" id="compareModal" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="compareTitle">
+    <div class="modal-backdrop" data-close-compare></div>
+    <div class="modal-panel compare-panel">
+      <button class="icon-btn modal-close" data-close-compare aria-label="Close">✕</button>
+      <div class="compare-body" id="compareBody"></div>
+    </div>
+  </div>
+
   <!-- Toast -->
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 

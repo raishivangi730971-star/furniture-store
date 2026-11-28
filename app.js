@@ -4,7 +4,8 @@
 
   const SHIPPING_THRESHOLD = 999;
   const SHIPPING_FEE = 49;
-  const $ = (sel, root = document) => root.querySelector(sel);
+  const MAX_COMPARE = 3;
+  const $ =(sel, root = document) => root.querySelector(sel);
   const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
   const money = (n) => "$" + n.toLocaleString("en-US");
   const escapeHtml = (s) =>
@@ -28,13 +29,17 @@
   const state = {
     cart: store.load("mo-cart", []),        // [{ id, qty }]
     wishlist: store.load("mo-wishlist", []), // [id]
+    compare: store.load("mo-compare", []),   // [id], up to MAX_COMPARE
     filters: { category: "All", search: "", maxPrice: 5000, sort: "featured", inStock: false }
   };
 
   const byId = (id) => PRODUCTS.find((p) => p.id === id);
+  // Drop saved comparison entries for products that no longer exist
+  state.compare = Array.isArray(state.compare) ? state.compare.filter((id) => byId(id)).slice(0, MAX_COMPARE) : [];
   const persist = () => {
     store.save("mo-cart", state.cart);
     store.save("mo-wishlist", state.wishlist);
+    store.save("mo-compare", state.compare);
   };
 
   /* ---------- Toast ---------- */
@@ -50,6 +55,7 @@
   /* ---------- Product card markup ---------- */
   function cardHtml(p, i) {
     const wished = state.wishlist.includes(p.id);
+    const comparing = state.compare.includes(p.id);
     const tag = p.oldPrice || p.badge === "Sale" ? '<span class="tag sale">Sale</span>'
       : p.badge === "New" ? '<span class="tag new">New</span>'
       : p.badge ? `<span class="tag">${escapeHtml(p.badge)}</span>` : "";
@@ -64,6 +70,9 @@
           <div class="fallback" style="background:${p.tint}">${escapeHtml(p.name)}</div>
           <button class="wish-btn ${wished ? "on" : ""}" data-wish="${p.id}" aria-label="${wished ? "Remove from" : "Add to"} wishlist" aria-pressed="${wished}">
             <svg viewBox="0 0 24 24"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/></svg>
+          </button>
+          <button class="compare-btn ${comparing ? "on" : ""}" data-compare="${p.id}" aria-label="${comparing ? "Remove" : "Add"} ${escapeHtml(p.name)} ${comparing ? "from" : "to"} compare" aria-pressed="${comparing}">
+            <svg viewBox="0 0 24 24"><path d="M7 7h12M16 3.5 19.5 7 16 10.5M17 17H5M8 13.5 4.5 17 8 20.5"/></svg>
           </button>
           <button class="quick-add" data-add="${p.id}" ${p.stock ? "" : "disabled"}>
             ${p.stock ? "Add to cart" : "Sold out"}
@@ -202,7 +211,119 @@
     if (lastFocus && lastFocus.focus) lastFocus.focus();
   }
   function closeAllOverlays() {
-    ["#productModal", "#checkoutModal", "#cartDrawer", "#wishDrawer"].forEach(closeOverlay);
+    ["#productModal", "#checkoutModal", "#compareModal", "#cartDrawer", "#wishDrawer"].forEach(closeOverlay);
+  }
+
+  /* ---------- Compare ---------- */
+  const comparedProducts = () => state.compare.map(byId).filter(Boolean);
+
+  function syncCompareButtons() {
+    $$("[data-compare]").forEach((b) => {
+      const p = byId(b.dataset.compare);
+      const on = state.compare.includes(b.dataset.compare);
+      b.classList.toggle("on", on);
+      b.setAttribute("aria-pressed", String(on));
+      if (p) b.setAttribute("aria-label", `${on ? "Remove" : "Add"} ${p.name} ${on ? "from" : "to"} compare`);
+    });
+  }
+
+  function renderCompareBar() {
+    const items = comparedProducts();
+    $("#compareBar").classList.toggle("show", items.length > 0);
+    document.body.classList.toggle("has-compare", items.length > 0);
+    const thumbs = items.map((p) => `
+      <div class="compare-thumb" style="background:${p.tint}" title="${escapeHtml(p.name)}">
+        <img src="${p.image}" alt="${escapeHtml(p.name)}" onerror="this.style.display='none'" />
+        <button data-compare-remove="${p.id}" aria-label="Remove ${escapeHtml(p.name)} from compare">✕</button>
+      </div>`).join("");
+    const hint = items.length === 1 ? '<span class="compare-hint">Select 1 more piece to compare</span>' : "";
+    $("#compareThumbs").innerHTML = thumbs + hint;
+    const openBtn = $("#compareOpen");
+    openBtn.disabled = items.length < 2;
+    openBtn.textContent = `Compare (${items.length})`;
+  }
+
+  function toggleCompare(id) {
+    if (!byId(id)) return;
+    if (state.compare.includes(id)) {
+      state.compare = state.compare.filter((x) => x !== id);
+    } else if (state.compare.length >= MAX_COMPARE) {
+      toast(`You can compare up to ${MAX_COMPARE} pieces.`);
+      return;
+    } else {
+      state.compare = [...state.compare, id];
+    }
+    persist();
+    syncCompareButtons();
+    renderCompareBar();
+  }
+
+  function removeFromCompare(id) {
+    state.compare = state.compare.filter((x) => x !== id);
+    persist();
+    syncCompareButtons();
+    renderCompareBar();
+    if ($("#compareModal").classList.contains("open")) {
+      if (state.compare.length < 2) {
+        closeOverlay("#compareModal");
+        toast("Select at least 2 pieces to compare.");
+      } else {
+        renderCompare();
+      }
+    }
+  }
+
+  function renderCompare() {
+    const items = comparedProducts();
+    if (!items.length) return;
+    const minPrice = Math.min(...items.map((p) => p.price));
+    const maxRating = Math.max(...items.map((p) => p.rating));
+    const priceTies = items.every((p) => p.price === minPrice);
+    const ratingTies = items.every((p) => p.rating === maxRating);
+    const isLowest = (p) => !priceTies && p.price === minPrice;
+    const isTopRated = (p) => !ratingTies && p.rating === maxRating;
+
+    const row = (label, html, isBest) =>
+      `<tr><th scope="row">${label}</th>${items.map((p) =>
+        `<td${isBest && isBest(p) ? ' class="best"' : ""}>${html(p)}</td>`).join("")}</tr>`;
+
+    const head = items.map((p) => `
+      <th scope="col" class="compare-product">
+        <div class="compare-img" style="background:${p.tint}">
+          <img src="${p.image}" alt="${escapeHtml(p.name)}" onerror="this.style.display='none'" />
+        </div>
+        <div class="cat">${escapeHtml(p.category)}</div>
+        <div class="compare-name">${escapeHtml(p.name)}</div>
+      </th>`).join("");
+
+    $("#compareBody").innerHTML = `
+      <h2 id="compareTitle">Compare pieces</h2>
+      <p class="lead">Side by side · ${items.length} selected (up to ${MAX_COMPARE})</p>
+      <div class="compare-scroll">
+        <table class="compare-table">
+          <thead><tr><th scope="col" class="compare-corner"><span class="sr-only">Feature</span></th>${head}</tr></thead>
+          <tbody>
+            ${row("Price", (p) => (p.oldPrice ? `${money(p.price)}<s>${money(p.oldPrice)}</s>` : money(p.price)) +
+              (isLowest(p) ? ' <span class="best-note">Lowest price</span>' : ""), isLowest)}
+            ${row("Rating", (p) => `<b class="star">★</b> ${p.rating.toFixed(1)} <span class="muted">(${p.reviews} reviews)</span>` +
+              (isTopRated(p) ? ' <span class="best-note">Top rated</span>' : ""), isTopRated)}
+            ${row("Category", (p) => escapeHtml(p.category))}
+            ${row("Colour", (p) => escapeHtml(p.color))}
+            ${row("Material", (p) => escapeHtml(p.material))}
+            ${row("Dimensions", (p) => escapeHtml(p.dimensions))}
+            ${row("Availability", (p) => (p.stock ? "In stock · ships in 5–7 days" : "Sold out"))}
+            ${row("", (p) => `
+              <button class="btn btn-primary" data-compare-add="${p.id}" ${p.stock ? "" : "disabled"}>${p.stock ? "Add to cart" : "Sold out"}</button>
+              <button class="compare-remove" data-compare-remove="${p.id}">Remove</button>`)}
+          </tbody>
+        </table>
+      </div>`;
+  }
+
+  function openCompare() {
+    if (state.compare.length < 2) return;
+    renderCompare();
+    openOverlay("#compareModal");
   }
 
   /* ---------- Cart ---------- */
@@ -427,6 +548,8 @@
       if (add) return addToCart(add.dataset.add, 1);
       const wish = e.target.closest("[data-wish]");
       if (wish) return toggleWish(wish.dataset.wish);
+      const cmp = e.target.closest("[data-compare]");
+      if (cmp) return toggleCompare(cmp.dataset.compare);
       const open = e.target.closest("[data-open]");
       if (open) return openProduct(open.dataset.open);
     });
@@ -474,6 +597,35 @@
       else if (e.target.closest("#modalWish")) toggleWish(modalProduct.id);
     });
 
+    // Compare bar and comparison window
+    $("#compareThumbs").addEventListener("click", (e) => {
+      const rm = e.target.closest("[data-compare-remove]");
+      if (rm) removeFromCompare(rm.dataset.compareRemove);
+    });
+    $("#compareClear").addEventListener("click", () => {
+      state.compare = [];
+      persist();
+      syncCompareButtons();
+      renderCompareBar();
+    });
+    $("#compareOpen").addEventListener("click", openCompare);
+    $("#compareBody").addEventListener("click", (e) => {
+      const add = e.target.closest("[data-compare-add]");
+      const rm = e.target.closest("[data-compare-remove]");
+      if (add) addToCart(add.dataset.compareAdd, 1);
+      else if (rm) removeFromCompare(rm.dataset.compareRemove);
+    });
+    // Keep keyboard focus inside the comparison window while it is open
+    $("#compareModal").addEventListener("keydown", (e) => {
+      if (e.key !== "Tab") return;
+      const focusable = $$("button:not([disabled])", $("#compareModal")).filter((el) => el.offsetParent !== null);
+      if (!focusable.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    });
+
     // Cart & wishlist drawers
     $("#cartBtn").addEventListener("click", () => { renderCart(); openOverlay("#cartDrawer"); });
     $("#wishlistBtn").addEventListener("click", () => { renderWishlist(); openOverlay("#wishDrawer"); });
@@ -518,6 +670,7 @@
       const t = e.target;
       if (t.matches("#productModal [data-close]") || t.closest("#productModal .modal-close") || t.matches("#productModal .modal-backdrop")) closeOverlay("#productModal");
       if (t.matches("[data-close-cart]") || t.matches("[data-close-cart] *") || t.closest("#cartDrawer .icon-btn[data-close-cart]") || t.matches("#cartDrawer .modal-backdrop")) closeOverlay("#cartDrawer");
+      if (t.closest("[data-close-compare]")) closeOverlay("#compareModal");
       if (t.matches("[data-close-wish]") || t.closest("[data-close-wish]") || t.matches("#wishDrawer .modal-backdrop")) closeOverlay("#wishDrawer");
     });
 
@@ -576,6 +729,7 @@
     renderGrid();
     renderCart();
     renderWishlist();
+    renderCompareBar();
     updateBadges(false);
     setupSearch();
     wire();

@@ -57,7 +57,7 @@ const PRODUCTS = [
     rating: 4.6,
     reviews: 415,
     stock: true,
-    badge: "",
+    badge: "Sale",
     color: "Natural oak",
     material: "Solid white oak, woven cord seat",
     dimensions: "48 W × 52 D × 79 H cm",
